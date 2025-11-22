@@ -54,6 +54,8 @@ Environment variables:\n\
 #[derive(Debug, Clone)]
 pub enum Command {
     Repl,
+    Chat,
+    Run { goal: String },
     Plan(PlanCommand),
     Action(ActionCommand),
     Ops(OpsCommand),
@@ -160,6 +162,14 @@ fn parse_command(tokens: &[String]) -> Result<Command, String> {
     let kind = tokens[0].to_uppercase();
 
     match kind.as_str() {
+        "CHAT" => Ok(Command::Chat),
+        "RUN" => {
+            if tokens.len() < 2 {
+                return Err("RUN requires a goal string.".to_string());
+            }
+            let goal = tokens[1..].join(" ");
+            Ok(Command::Run { goal })
+        }
         "PLAN" => parse_plan_command(&tokens[1..]),
         "ACTION" => parse_action_command(&tokens[1..]),
         "JOBS" | "WORKERS" | "QUEUE" => parse_ops_command(&tokens),

@@ -9,18 +9,22 @@ pub mod plan_buffer;
 pub mod planner;
 pub mod registry;
 pub mod repl;
+pub mod echo;
+pub mod delta;
+pub mod models;
+pub mod client;
 
+use anyhow::Result;
 use serde_json::json;
 
 // Security: Maximum allowed length for plan_id to prevent abuse
 const MAX_PLAN_ID_LENGTH: usize = 128;
 
-pub fn run() -> Result<(), String> {
-    let mut config = cli::CliConfig::from_env()?;
 
-    if config.show_version {
-        cli::print_version();
-    }
+
+
+pub async fn run() -> Result<()> {
+    let mut config = cli::CliConfig::from_env().map_err(|e| anyhow::anyhow!(e))?;
 
     if config.show_help {
         cli::print_help();
@@ -33,7 +37,7 @@ pub fn run() -> Result<(), String> {
     let command = config
         .command
         .take()
-        .ok_or_else(|| "a command is required. Run `agx --help` for usage.".to_string())?;
+        .ok_or_else(|| anyhow::anyhow!("a command is required. Run `agx --help` for usage."))?;
 
     logging::set_debug(config.debug);
 
@@ -42,10 +46,12 @@ pub fn run() -> Result<(), String> {
     }
 
     match command {
-        cli::Command::Repl => handle_repl(),
-        cli::Command::Plan(plan_command) => handle_plan_command(plan_command),
-        cli::Command::Action(action_command) => handle_action_command(action_command),
-        cli::Command::Ops(ops_command) => handle_ops_command(ops_command),
+        cli::Command::Repl => handle_repl().map_err(|e| anyhow::anyhow!(e)),
+        cli::Command::Chat => echo::run().await,
+        cli::Command::Run { goal } => delta::run(goal).await,
+        cli::Command::Plan(plan_command) => handle_plan_command(plan_command).map_err(|e| anyhow::anyhow!(e)),
+        cli::Command::Action(action_command) => handle_action_command(action_command).map_err(|e| anyhow::anyhow!(e)),
+        cli::Command::Ops(ops_command) => handle_ops_command(ops_command).map_err(|e| anyhow::anyhow!(e)),
     }
 }
 
