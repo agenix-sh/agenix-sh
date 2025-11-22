@@ -1,0 +1,13 @@
+{
+  "job_id": "test-timeout-001",
+  "plan_id": "sleep-timeout",
+  "plan_description": "Sleep command that exceeds timeout",
+  "tasks": [
+    {
+      "task_number": 1,
+      "command": "sleep",
+      "args": ["100"],
+      "timeout_secs": 2
+    }
+  ]
+}

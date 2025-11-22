@@ -1,0 +1,13 @@
+{
+  "job_id": "test-invalid-001",
+  "plan_id": "nonexistent-command",
+  "plan_description": "Job with command that doesn't exist",
+  "tasks": [
+    {
+      "task_number": 1,
+      "command": "nonexistent-tool-xyz",
+      "args": [],
+      "timeout_secs": 5
+    }
+  ]
+}

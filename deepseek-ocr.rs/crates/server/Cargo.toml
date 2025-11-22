@@ -1,0 +1,35 @@
+[package]
+name = "deepseek-ocr-server"
+version = "0.5.1"
+edition = "2024"
+
+[dependencies]
+base64 = "0.22"
+rocket = { version = "0.5.0", features = ["json"] }
+uuid = { version = "1.8", features = ["v4"] }
+thiserror = "1.0"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
+tokio-stream = "0.1"
+anyhow = { workspace = true }
+clap = { workspace = true }
+image = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+deepseek-ocr-core = { workspace = true }
+deepseek-ocr-assets = { workspace = true }
+deepseek-ocr-config = { workspace = true }
+deepseek-ocr-infer-deepseek = { path = "../infer-deepseek" }
+deepseek-ocr-infer-paddleocr = { path = "../infer-paddleocr" }
+deepseek-ocr-infer-dots = { path = "../infer-dots" }
+tokenizers = { workspace = true }
+candle-core = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[features]
+default = []
+metal = ["deepseek-ocr-core/metal", "deepseek-ocr-infer-deepseek/metal", "deepseek-ocr-infer-dots/metal"]
+accelerate = ["deepseek-ocr-core/accelerate", "deepseek-ocr-infer-deepseek/accelerate", "deepseek-ocr-infer-paddleocr/accelerate", "deepseek-ocr-infer-dots/accelerate"]
+flash-attn = ["deepseek-ocr-core/flash-attn", "deepseek-ocr-infer-deepseek/flash-attn", "deepseek-ocr-infer-paddleocr/flash-attn", "deepseek-ocr-infer-dots/flash-attn"]
+cuda = ["deepseek-ocr-core/cuda", "deepseek-ocr-infer-deepseek/cuda", "deepseek-ocr-infer-paddleocr/cuda", "deepseek-ocr-infer-dots/cuda"]
+mkl = ["deepseek-ocr-core/mkl", "deepseek-ocr-infer-deepseek/mkl", "deepseek-ocr-infer-paddleocr/mkl", "deepseek-ocr-infer-dots/mkl"]

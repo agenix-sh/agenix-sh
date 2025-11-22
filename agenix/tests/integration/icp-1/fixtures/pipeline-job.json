@@ -1,0 +1,20 @@
+{
+  "job_id": "test-pipeline-001",
+  "plan_id": "sort-uniq",
+  "plan_description": "Sort lines in reverse and remove duplicates",
+  "tasks": [
+    {
+      "task_number": 1,
+      "command": "sort",
+      "args": ["-r"],
+      "timeout_secs": 30
+    },
+    {
+      "task_number": 2,
+      "command": "uniq",
+      "args": [],
+      "input_from_task": 1,
+      "timeout_secs": 30
+    }
+  ]
+}

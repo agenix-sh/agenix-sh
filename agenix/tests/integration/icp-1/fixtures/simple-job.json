@@ -1,0 +1,13 @@
+{
+  "job_id": "test-simple-001",
+  "plan_id": "echo-hello",
+  "plan_description": "Echo hello world to stdout",
+  "tasks": [
+    {
+      "task_number": 1,
+      "command": "echo",
+      "args": ["hello", "world"],
+      "timeout_secs": 5
+    }
+  ]
+}

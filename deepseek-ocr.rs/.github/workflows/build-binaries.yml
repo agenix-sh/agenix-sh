@@ -1,0 +1,123 @@
+name: build-binaries
+
+permissions:
+  contents: write
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - "v*"
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Build CLI (macOS)
+        if: matrix.os == 'macos-latest'
+        run: cargo build --locked --release -p deepseek-ocr-cli --features metal,accelerate
+
+      - name: Build CLI (Windows)
+        if: matrix.os == 'windows-latest'
+        run: cargo build --locked --release -p deepseek-ocr-cli
+
+      - name: Build server (macOS)
+        if: matrix.os == 'macos-latest'
+        run: cargo build --locked --release -p deepseek-ocr-server --features metal,accelerate
+
+      - name: Build server (Windows)
+        if: matrix.os == 'windows-latest'
+        run: cargo build --locked --release -p deepseek-ocr-server
+
+      - name: Collect uncompressed binaries (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts\original | Out-Null
+          Copy-Item target\release\deepseek-ocr-cli.exe artifacts\original\
+          Copy-Item target\release\deepseek-ocr-server.exe artifacts\original\
+          Compress-Archive -Path artifacts\original\* -DestinationPath deepseek-ocr-windows.zip -Force
+
+      - name: Install UPX (Windows)
+        if: matrix.os == 'windows-latest'
+        run: choco install upx --no-progress -y
+
+      - name: Compress executables with UPX (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $upx = Get-Command upx | Select-Object -ExpandProperty Source
+          New-Item -ItemType Directory -Force -Path artifacts\upx | Out-Null
+          Copy-Item target\release\deepseek-ocr-cli.exe artifacts\upx\
+          Copy-Item target\release\deepseek-ocr-server.exe artifacts\upx\
+          & $upx --lzma --best artifacts\upx\deepseek-ocr-cli.exe
+          & $upx --lzma --best artifacts\upx\deepseek-ocr-server.exe
+          Compress-Archive -Path artifacts\upx\* -DestinationPath deepseek-ocr-windows-upx.zip -Force
+
+      - name: Package artifacts (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          mkdir -p artifacts
+          cp target/release/deepseek-ocr-cli artifacts/deepseek-ocr-cli
+          cp target/release/deepseek-ocr-server artifacts/deepseek-ocr-server
+          tar -czf deepseek-ocr-macos.tar.gz -C artifacts .
+
+      - name: Upload artifacts (macOS)
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: deepseek-ocr-macos
+          path: deepseek-ocr-macos.tar.gz
+
+      - name: Publish release asset (macOS)
+        if: matrix.os == 'macos-latest' && startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: deepseek-ocr-macos.tar.gz
+
+      - name: Upload artifacts (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: deepseek-ocr-windows
+          path: deepseek-ocr-windows.zip
+
+      - name: Upload UPX artifacts (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: deepseek-ocr-windows-upx
+          path: deepseek-ocr-windows-upx.zip
+
+      - name: Publish release assets (Windows)
+        if: matrix.os == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            deepseek-ocr-windows.zip
+            deepseek-ocr-windows-upx.zip

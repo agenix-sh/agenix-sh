@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/agenix-sh/agenix/specs/job.schema.json",
+  "title": "AGEniX Job Envelope",
+  "description": "Canonical schema for jobs submitted to AGQ and executed by AGW. See docs/architecture/job-schema.md for specification.",
+  "type": "object",
+  "required": ["job_id", "plan_id", "tasks"],
+  "properties": {
+    "job_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Unique identifier for this execution instance. Generated for each job submission."
+    },
+    "plan_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Stable identifier for the logical plan. Reused when executing the same plan with different inputs."
+    },
+    "plan_description": {
+      "type": "string",
+      "maxLength": 1024,
+      "description": "Human-readable description of the plan's intent (optional)."
+    },
+    "tasks": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "description": "Ordered, non-empty list of tasks to execute sequentially.",
+      "items": {
+        "type": "object",
+        "required": ["task_number", "command", "args"],
+        "properties": {
+          "task_number": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "1-based, contiguous task identifier. Must start at 1 and increment by 1."
+          },
+          "command": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "description": "Tool or command identifier (e.g. 'sort', 'uniq', 'agx-ocr')."
+          },
+          "args": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "string",
+              "maxLength": 65536
+            },
+            "description": "Arguments passed to the command. Defaults to empty array."
+          },
+          "timeout_secs": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3600,
+            "default": 300,
+            "description": "Per-task timeout in seconds. Task is terminated if it exceeds this duration."
+          },
+          "input_from_task": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Reference to previous task number. The stdout from referenced task becomes stdin for this task. Must reference earlier task only."
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

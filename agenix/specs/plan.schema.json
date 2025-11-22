@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/agenix-sh/agenix/specs/plan.schema.json",
+  "title": "AGEniX Execution Plan (DEPRECATED)",
+  "description": "DEPRECATED: This schema is outdated. Use job.schema.json instead. This schema used 'steps' and 'tool' terminology which has been superseded by 'tasks' and 'command' to align with execution-layers.md nomenclature. See docs/architecture/job-schema.md for the canonical specification.",
+  "deprecated": true,
+  "type": "object",
+  "required": ["version", "steps"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Plan format version."
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Optional metadata such as created_at, intent, origin, etc."
+    },
+    "steps": {
+      "type": "array",
+      "description": "DEPRECATED: Use 'tasks' instead. Ordered list of execution steps.",
+      "items": {
+        "type": "object",
+        "required": ["id", "tool", "args"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "DEPRECATED: Use 'task_number' instead. Unique identifier for this step."
+          },
+          "tool": {
+            "type": "string",
+            "description": "DEPRECATED: Use 'command' instead. Tool name or command to run (e.g. 'agx-ocr')."
+          },
+          "args": {
+            "type": "array",
+            "description": "Command-line arguments for the tool.",
+            "items": { "type": "string" }
+          },
+          "env": {
+            "type": "object",
+            "additionalProperties": { "type": "string" },
+            "description": "Environment variables for the step (optional)."
+          },
+          "input": {
+            "type": "string",
+            "description": "DEPRECATED: Use 'input_from_task' instead. How this step receives input."
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,44 @@
+# Dockerfile for NVIDIA DGX Spark (ARM64 + Ubuntu 24.04)
+# This creates a minimal container for the agx-ocr binary
+
+FROM ubuntu:24.04
+
+LABEL maintainer="AGEniX"
+LABEL description="agx-ocr Agentic Unit for NVIDIA DGX Spark"
+LABEL architecture="arm64"
+
+# Install minimal runtime dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create directories
+RUN mkdir -p /models/deepseek-ocr \
+    && mkdir -p /app
+
+WORKDIR /app
+
+# Copy the pre-built ARM64 binary
+# NOTE: Build this first with: cargo build --release --target aarch64-unknown-linux-gnu
+COPY target/aarch64-unknown-linux-gnu/release/agx-ocr /usr/local/bin/agx-ocr
+RUN chmod +x /usr/local/bin/agx-ocr
+
+# Copy test assets (optional, for validation)
+COPY test-assets /app/test-assets
+
+# Set environment variables
+ENV MODEL_PATH=/models/deepseek-ocr
+ENV RUST_LOG=info
+
+# Verify the binary works
+RUN agx-ocr --describe > /dev/null && echo "Binary verification successful"
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD agx-ocr --describe || exit 1
+
+# Default: run agx-ocr with stdin/stdout interface
+# Usage:
+#   docker run -i -v /path/to/models:/models/deepseek-ocr:ro agx-ocr:dgx < image.png
+ENTRYPOINT ["agx-ocr"]
+CMD []

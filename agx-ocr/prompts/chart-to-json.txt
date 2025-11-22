@@ -1,0 +1,8 @@
+<image>
+Extract all data from this chart.
+For each data point, provide:
+- Label or category
+- Value
+- Units (if shown)
+
+Format the output as a JSON array with objects containing "label", "value", and "unit" fields.

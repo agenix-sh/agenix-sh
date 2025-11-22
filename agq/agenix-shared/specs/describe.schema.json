@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/agenix-sh/agenix/specs/describe.schema.json",
+  "title": "AGEnix Tool Description",
+  "description": "Schema for `--describe` output from tools participating in AGEnix workflows.",
+  "type": "object",
+  "required": ["name", "version", "description", "capabilities"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Tool name (e.g. 'agx-ocr')."
+    },
+    "version": {
+      "type": "string",
+      "description": "Tool version string."
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable summary of the tool."
+    },
+    "capabilities": {
+      "type": "array",
+      "description": "List of high-level capabilities (e.g. 'ocr', 'pdf', 'image').",
+      "items": { "type": "string" }
+    },
+    "inputs": {
+      "type": "array",
+      "description": "Declared input formats.",
+      "items": {
+        "type": "object",
+        "required": ["media_type"],
+        "properties": {
+          "media_type": {
+            "type": "string",
+            "description": "MIME type (e.g. 'image/jpeg', 'application/pdf', 'text/plain')."
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "outputs": {
+      "type": "array",
+      "description": "Declared output formats.",
+      "items": {
+        "type": "object",
+        "required": ["media_type"],
+        "properties": {
+          "media_type": {
+            "type": "string",
+            "description": "MIME type for the primary output (e.g. 'application/json')."
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "config": {
+      "type": "object",
+      "description": "Configurable parameters for the tool.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Parameter type (string, integer, boolean, etc.)."
+          },
+          "description": {
+            "type": "string"
+          },
+          "default": {}
+        }
+      }
+    }
+  }
+}

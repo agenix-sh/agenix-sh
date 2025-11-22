@@ -1,0 +1,36 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Unix pipe symbol with agentic flow -->
+  <defs>
+    <linearGradient id="pipeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3ECC5F;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#44D860;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="90" fill="none" stroke="url(#pipeGradient)" stroke-width="3" opacity="0.2"/>
+
+  <!-- Left terminal bracket -->
+  <path d="M 40 60 L 40 140 M 40 60 L 50 60 M 40 140 L 50 140"
+        stroke="#3ECC5F" stroke-width="6" stroke-linecap="round" fill="none"/>
+
+  <!-- Pipe symbol (vertical bar) -->
+  <rect x="95" y="70" width="10" height="60" fill="url(#pipeGradient)" rx="3"/>
+
+  <!-- Right terminal bracket -->
+  <path d="M 160 60 L 160 140 M 160 60 L 150 60 M 160 140 L 150 140"
+        stroke="#44D860" stroke-width="6" stroke-linecap="round" fill="none"/>
+
+  <!-- Data flow particles (left to right) -->
+  <circle cx="65" cy="85" r="4" fill="#3ECC5F" opacity="0.8"/>
+  <circle cx="75" cy="100" r="3" fill="#3ECC5F" opacity="0.6"/>
+  <circle cx="70" cy="115" r="3.5" fill="#3ECC5F" opacity="0.7"/>
+
+  <circle cx="125" cy="85" r="4" fill="#44D860" opacity="0.8"/>
+  <circle cx="135" cy="100" r="3" fill="#44D860" opacity="0.6"/>
+  <circle cx="130" cy="115" r="3.5" fill="#44D860" opacity="0.7"/>
+
+  <!-- AGX letters inside pipe -->
+  <text x="100" y="108" font-family="monospace" font-size="20" font-weight="bold"
+        fill="#2D8E4A" text-anchor="middle">AGX</text>
+</svg>

@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/agenix-sh/agenix/specs/registry.schema.json",
+  "title": "AGEnix Tool Registry Entry",
+  "description": "Schema for entries in the agx tool registry.",
+  "type": "object",
+  "required": ["name", "command"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Logical name used in plans."
+    },
+    "command": {
+      "type": "string",
+      "description": "Executable command (e.g. 'agx-ocr')."
+    },
+    "aliases": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Optional additional names for the tool."
+    },
+    "describe_command": {
+      "type": "string",
+      "description": "Command used to obtain the tool's model card (default: 'command --describe')."
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Free-form tags for planning/routing."
+    }
+  }
+}

@@ -1,0 +1,23 @@
+[package]
+name = "agx-ocr"
+version = "0.1.0"
+edition = "2021"
+description = "AGEniX Agentic Unit (AU) for OCR using DeepSeek GGUF models."
+license = "MIT"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive", "env"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+image = "0.25"
+# DeepSeek OCR engine dependencies
+deepseek-ocr-core = { path = "../deepseek-ocr.rs/crates/core", features = ["metal"] }
+deepseek-ocr-infer-deepseek = { path = "../deepseek-ocr.rs/crates/infer-deepseek", features = ["metal"] }
+tokenizers = "0.22"
+candle-core = { version = "0.9", default-features = false, features = ["metal"] }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1

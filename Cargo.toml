@@ -1,0 +1,17 @@
+[workspace]
+resolver = "2"
+members = [
+    "agx",
+    "agq",
+    "agw",
+    # "agenix", # Exclude for now as it might be a legacy folder or different project
+    # "agx-eval",
+    # "agx-ocr",
+    # "deepseek-ocr.rs"
+]
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+overflow-checks = true

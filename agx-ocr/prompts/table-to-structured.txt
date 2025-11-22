@@ -1,0 +1,4 @@
+<image>
+Convert this table to structured format.
+Preserve all rows, columns, and headers.
+Format as a clear text representation with columns aligned or as JSON objects.

@@ -1,0 +1,28 @@
+# Rust build artifacts
+/target
+**/*.rs.bk
+Cargo.lock
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+
+# Python/uv
+.venv/
+__pycache__/
+*.pyc
+
+# Generated test outputs
+chart-data.csv
+/tmp/
+
+# Model files (too large for git)
+models/
+*.safetensors
+*.gguf
+
+# Local development
+.env
+.env.local

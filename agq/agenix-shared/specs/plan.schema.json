@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/agenix-sh/agenix/specs/plan.schema.json",
+  "title": "AGEnix Execution Plan",
+  "description": "Schema for plans produced by agx and executed locally or by agw.",
+  "type": "object",
+  "required": ["version", "steps"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Plan format version."
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Optional metadata such as created_at, intent, origin, etc."
+    },
+    "steps": {
+      "type": "array",
+      "description": "Ordered list of execution steps.",
+      "items": {
+        "type": "object",
+        "required": ["id", "tool", "args"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for this step."
+          },
+          "tool": {
+            "type": "string",
+            "description": "Tool name or command to run (e.g. 'agx-ocr')."
+          },
+          "args": {
+            "type": "array",
+            "description": "Command-line arguments for the tool.",
+            "items": { "type": "string" }
+          },
+          "env": {
+            "type": "object",
+            "additionalProperties": { "type": "string" },
+            "description": "Environment variables for the step (optional)."
+          },
+          "input": {
+            "type": "string",
+            "description": "How this step receives input (e.g. from stdin, previous step, or a named resource)."
+          }
+        }
+      }
+    }
+  }
+}
