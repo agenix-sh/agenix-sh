@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 # Default values
 VERSION="${AGENIX_VERSION:-0.1.0}"
 INSTALL_DIR="${AGENIX_INSTALL_DIR:-$HOME/.local/bin}"
-BASE_URL="https://github.com/agenix-sh"
+REPO_URL="https://github.com/agenix-sh/agenix-sh"
 COMPONENTS=("agx" "agq" "agw")
 
 # Banner
@@ -79,10 +79,10 @@ detect_platform() {
     # Detect OS
     case "$(uname -s)" in
         Darwin*)
-            os="apple-darwin"
+            os="macos"
             ;;
         Linux*)
-            os="unknown-linux-gnu"
+            os="linux"
             ;;
         *)
             echo -e "${RED}Error: Unsupported operating system: $(uname -s)${NC}"
@@ -94,10 +94,10 @@ detect_platform() {
     # Detect architecture
     case "$(uname -m)" in
         x86_64)
-            arch="x86_64"
+            arch="amd64"
             ;;
         arm64|aarch64)
-            arch="aarch64"
+            arch="arm64"
             ;;
         *)
             echo -e "${RED}Error: Unsupported architecture: $(uname -m)${NC}"
@@ -106,33 +106,34 @@ detect_platform() {
             ;;
     esac
 
-    echo "${arch}-${os}"
+    echo "${os}-${arch}"
 }
 
-# Download and verify binary
-download_binary() {
-    local component=$1
-    local platform=$2
-    local version=$3
-    local url="${BASE_URL}/${component}/releases/download/v${version}/${component}-${version}-${platform}"
-    local dest="${INSTALL_DIR}/${component}"
-    local temp_file=$(mktemp)
+# Download and install binaries
+install_release() {
+    local platform=$1
+    local version=$2
+    local artifact_name="agenix-${platform}"
+    local filename="${artifact_name}.tar.gz"
+    local url="${REPO_URL}/releases/download/v${version}/${filename}"
+    local temp_dir=$(mktemp -d)
+    local temp_file="${temp_dir}/${filename}"
 
-    echo -e "${BLUE}Downloading ${component} v${version} for ${platform}...${NC}"
+    echo -e "${BLUE}Downloading AGEniX v${version} for ${platform}...${NC}"
 
     # Download with progress
     if command -v curl >/dev/null 2>&1; then
         if ! curl -fL --progress-bar "${url}" -o "${temp_file}"; then
-            echo -e "${RED}Error: Failed to download ${component}${NC}"
+            echo -e "${RED}Error: Failed to download release${NC}"
             echo "URL: ${url}"
-            rm -f "${temp_file}"
+            rm -rf "${temp_dir}"
             return 1
         fi
     elif command -v wget >/dev/null 2>&1; then
         if ! wget -q --show-progress "${url}" -O "${temp_file}"; then
-            echo -e "${RED}Error: Failed to download ${component}${NC}"
+            echo -e "${RED}Error: Failed to download release${NC}"
             echo "URL: ${url}"
-            rm -f "${temp_file}"
+            rm -rf "${temp_dir}"
             return 1
         fi
     else
@@ -140,20 +141,29 @@ download_binary() {
         exit 1
     fi
 
-    # Verify it's a valid executable
-    if ! file "${temp_file}" | grep -q "executable"; then
-        echo -e "${RED}Error: Downloaded file is not a valid executable${NC}"
-        rm -f "${temp_file}"
-        return 1
-    fi
+    # Extract
+    echo "Extracting..."
+    tar -xzf "${temp_file}" -C "${temp_dir}"
 
-    # Make executable
-    chmod +x "${temp_file}"
+    # Install binaries
+    for component in "${COMPONENTS[@]}"; do
+        if [ -f "${temp_dir}/${component}" ]; then
+            chmod +x "${temp_dir}/${component}"
+            mv "${temp_dir}/${component}" "${INSTALL_DIR}/${component}"
+            echo -e "${GREEN}✓ ${component} installed${NC}"
+        else
+             # Try looking in a subdirectory (some tars might have a root folder)
+             if [ -f "${temp_dir}/${artifact_name}/${component}" ]; then
+                chmod +x "${temp_dir}/${artifact_name}/${component}"
+                mv "${temp_dir}/${artifact_name}/${component}" "${INSTALL_DIR}/${component}"
+                echo -e "${GREEN}✓ ${component} installed${NC}"
+             else
+                echo -e "${RED}Warning: ${component} not found in archive${NC}"
+             fi
+        fi
+    done
 
-    # Move to install directory
-    mv "${temp_file}" "${dest}"
-
-    echo -e "${GREEN}✓ ${component} installed${NC}"
+    rm -rf "${temp_dir}"
     return 0
 }
 
@@ -219,29 +229,19 @@ main() {
         exit 1
     fi
 
-    # Download all components
-    echo "Installing AGEniX components..."
-    echo ""
-
-    local failed_components=()
-    for component in "${COMPONENTS[@]}"; do
-        if ! download_binary "${component}" "${PLATFORM}" "${VERSION}"; then
-            failed_components+=("${component}")
-        fi
-    done
-
-    echo ""
-
-    # Report results
-    if [ ${#failed_components[@]} -eq 0 ]; then
+    # Install
+    if install_release "${PLATFORM}" "${VERSION}"; then
+        echo ""
         echo -e "${GREEN}╔════════════════════════════════════════════╗${NC}"
         echo -e "${GREEN}║  AGEniX Installation Complete!            ║${NC}"
         echo -e "${GREEN}╚════════════════════════════════════════════╝${NC}"
         echo ""
         echo "Installed components:"
         for component in "${COMPONENTS[@]}"; do
-            version_output=$("${INSTALL_DIR}/${component}" --version 2>&1 | head -1 || echo "unknown")
-            echo -e "  ${GREEN}✓${NC} ${component}: ${version_output}"
+            if [ -f "${INSTALL_DIR}/${component}" ]; then
+                version_output=$("${INSTALL_DIR}/${component}" --version 2>&1 | head -1 || echo "unknown")
+                echo -e "  ${GREEN}✓${NC} ${component}: ${version_output}"
+            fi
         done
         echo ""
 
@@ -256,27 +256,17 @@ main() {
         echo -e "     ${BLUE}export AGQ_SESSION_KEY=<your-session-key>${NC}"
         echo -e "     ${BLUE}agx${NC}"
         echo ""
-        echo "Documentation: https://github.com/agenix-sh/agenix"
+        echo "Documentation: https://github.com/agenix-sh/agenix-sh"
         echo ""
     else
         echo -e "${RED}╔════════════════════════════════════════════╗${NC}"
         echo -e "${RED}║  Installation completed with errors        ║${NC}"
         echo -e "${RED}╚════════════════════════════════════════════╝${NC}"
         echo ""
-        echo "Failed to install:"
-        for component in "${failed_components[@]}"; do
-            echo -e "  ${RED}✗${NC} ${component}"
-        done
-        echo ""
-        echo "This may be because:"
-        echo "  - The specified version (${VERSION}) doesn't have releases for ${PLATFORM}"
-        echo "  - Network connectivity issues"
-        echo "  - GitHub rate limiting"
-        echo ""
+        echo "Failed to install release."
         echo "Please check:"
-        for component in "${failed_components[@]}"; do
-            echo "  ${BASE_URL}/${component}/releases"
-        done
+        echo "  - The specified version (${VERSION}) exists"
+        echo "  - Releases page: ${REPO_URL}/releases"
         exit 1
     fi
 }
