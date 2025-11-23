@@ -6,3 +6,8 @@ target/
 .idea/
 .vscode/
 *.swp
+axolotl/
+qlora-out/
+last_run_prepared/
+*.txt
+
