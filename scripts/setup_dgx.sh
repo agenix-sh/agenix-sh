@@ -38,26 +38,20 @@ fi
 # 2. Build Binaries
 echo "📦 Building Binaries..."
 
-# Build AGQ (Queue) and AGW (Worker) - CPU is fine for queue, Worker needs to be robust
+# Build AGQ (Queue) and AGW (Worker)
 echo "   - Building AGQ & AGW..."
 cargo build --release --bin agq --bin agw
 
-# Build AGX (Planner/Tools) with CUDA support for local inference if needed
-# Note: For training, we use 'accelerate' which uses python/torch, but agx might use candle
-echo "   - Building AGX (with CUDA)..."
-export CUDA_COMPUTE_CAP=90  # Hopper (H100) / Blackwell
-# Workaround for CUDA 13.0 (too new for current cudarc/candle)
-# We force it to treat it as 12.5, which is supported by cudarc 0.16.6
-export CUDARC_CUDA_VERSION=12.5
-cargo build --release --bin agx --features cuda
-
-# Build Data Generator
-echo "   - Building Data Generator..."
-cargo build --release --bin generate_data --features cuda
-
-# Build Training Wrapper
+# Build Training Wrapper (The only thing needed for training besides python env)
 echo "   - Building Training Wrapper..."
 cargo build --release --bin agx_train
+
+# Build AGX (Optional, CPU only, no default features to avoid 'accelerate' framework issue on Linux)
+echo "   - Building AGX (Minimal)..."
+cargo build --release --bin agx --no-default-features
+
+# Note: We skip generate_data and full agx build to avoid CUDA/Accelerate dependency hell on DGX.
+# The user can run planning/generation on their laptop.
 
 echo "✅ Build Complete."
 
