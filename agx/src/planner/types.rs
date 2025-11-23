@@ -42,8 +42,36 @@ impl ToolInfo {
     }
 }
 
+/// A message in a chat conversation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatMessage {
+    pub role: String, // "user", "assistant", "system"
+    pub content: String,
+}
+
+impl ChatMessage {
+    pub fn new(role: impl Into<String>, content: impl Into<String>) -> Self {
+        Self {
+            role: role.into(),
+            content: content.into(),
+        }
+    }
+    
+    pub fn user(content: impl Into<String>) -> Self {
+        Self::new("user", content)
+    }
+    
+    pub fn assistant(content: impl Into<String>) -> Self {
+        Self::new("assistant", content)
+    }
+    
+    pub fn system(content: impl Into<String>) -> Self {
+        Self::new("system", content)
+    }
+}
+
 /// Output from model plan generation
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GeneratedPlan {
     /// The generated tasks
     pub tasks: Vec<PlanStep>,
@@ -52,7 +80,7 @@ pub struct GeneratedPlan {
 }
 
 /// Metadata about plan generation
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlanMetadata {
     /// Model identifier used for generation
     pub model_used: String,

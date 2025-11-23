@@ -15,7 +15,7 @@ pub struct OllamaConfig {
 impl Default for OllamaConfig {
     fn default() -> Self {
         Self {
-            model: std::env::var("AGX_OLLAMA_MODEL").unwrap_or_else(|_| "phi3:mini".to_string()),
+            model: std::env::var("AGX_OLLAMA_MODEL").unwrap_or_else(|_| "qwen2.5:7b".to_string()),
         }
     }
 }
@@ -34,51 +34,16 @@ impl OllamaBackend {
         Self::new(config.model)
     }
 
-    /// Build prompt for Ollama
-    fn build_prompt(&self, instruction: &str, context: &PlanContext) -> String {
-        let input_description = context
-            .input_summary
-            .as_ref()
-            .map(|s| format!("Input description:\n{}\n\n", s))
-            .unwrap_or_default();
 
-        let tools_description = context
-            .tool_registry
-            .iter()
-            .map(|t| format!("{}: {}", t.name, t.description))
-            .collect::<Vec<_>>()
-            .join("\n");
-
-        format!(
-            "You are the AGX Planner.\n\
-             \n\
-             User instruction:\n\
-             {instruction}\n\
-             \n\
-             {input_description}\
-             Available tools:\n\
-             {tools}\n\
-             \n\
-             Respond with a single JSON object only, no extra commentary.\n\
-             Use this exact format:\n\
-             {{\"tasks\": [{{\"task_number\": 1, \"command\": \"tool-id\", \"args\": [], \"timeout_secs\": 300}}]}}\n\
-             \n\
-             - task_number: 1-based, contiguous (1, 2, 3...)\n\
-             - command: tool identifier from list above\n\
-             - args: arguments for the command (empty array if none)\n\
-             - timeout_secs: timeout in seconds (default 300)\n\
-             \n\
-             Use only the tools listed above and produce a deterministic, minimal plan.",
-            instruction = instruction,
-            input_description = input_description,
-            tools = tools_description
-        )
-    }
 
     /// Parse model response into tasks
     fn parse_plan_response(&self, response: &str) -> Result<Vec<PlanStep>, ModelError> {
         let plan = WorkflowPlan::from_str(response)
-            .map_err(|e| ModelError::ParseError(format!("Failed to parse plan JSON: {}", e)))?;
+            .map_err(|e| {
+                // Log the raw response for debugging
+                println!("Failed to parse plan JSON. Raw response:\n{}", response);
+                ModelError::ParseError(format!("Failed to parse plan JSON: {}", e))
+            })?;
 
         Ok(plan.tasks)
     }
@@ -91,7 +56,13 @@ impl ModelBackend for OllamaBackend {
         instruction: &str,
         context: &PlanContext,
     ) -> Result<GeneratedPlan, ModelError> {
-        let prompt = self.build_prompt(instruction, context);
+        let prompt = if !context.existing_tasks.is_empty() {
+            crate::planner::prompts::build_delta_prompt(instruction, context)
+        } else {
+            let system = crate::planner::prompts::build_system_prompt(context);
+            let user = crate::planner::prompts::build_user_prompt(instruction, context);
+            format!("{}\n\n{}", system, user)
+        };
         let model = self.model.clone();
 
         // Timeout for Ollama calls (default 5 minutes)
@@ -200,6 +171,84 @@ impl ModelBackend for OllamaBackend {
         .await
         .map_err(|e| ModelError::HealthCheckError(format!("Task join error: {}", e)))?
     }
+
+    async fn chat(
+        &self,
+        history: &[super::types::ChatMessage],
+        context: &PlanContext,
+    ) -> Result<String, ModelError> {
+        let mut prompt = String::new();
+        
+        // Simple chat formatting
+        // TODO: Use model-specific templates if possible, or ChatML
+        for msg in history {
+            match msg.role.as_str() {
+                "system" => prompt.push_str(&format!("System: {}\n", msg.content)),
+                "user" => prompt.push_str(&format!("User: {}\n", msg.content)),
+                "assistant" => prompt.push_str(&format!("Assistant: {}\n", msg.content)),
+                _ => prompt.push_str(&format!("{}: {}\n", msg.role, msg.content)),
+            }
+        }
+        
+        // Add context if present
+        if let Some(summary) = &context.input_summary {
+             prompt.push_str(&format!("\nContext: {}\n", summary));
+        }
+        
+        prompt.push_str("Assistant: ");
+
+        let model = self.model.clone();
+
+        // Timeout for Ollama calls (default 5 minutes)
+        let timeout_secs = std::env::var("AGX_OLLAMA_TIMEOUT_SECS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(300);
+
+        // Run ollama in a blocking task with timeout
+        let (response, _) = tokio::time::timeout(
+            Duration::from_secs(timeout_secs),
+            tokio::task::spawn_blocking(move || {
+            let start = Instant::now();
+
+            let output = std::process::Command::new("ollama")
+                .arg("run")
+                .arg(&model)
+                .arg(&prompt)
+                .output()
+                .map_err(|error| {
+                    ModelError::InferenceError(format!("failed to run ollama: {}", error))
+                })?;
+
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                return Err(ModelError::InferenceError(format!(
+                    "ollama exited with status {}: {}",
+                    output.status,
+                    stderr.trim()
+                )));
+            }
+
+            let text = String::from_utf8(output.stdout).map_err(|error| {
+                ModelError::InferenceError(format!("ollama produced non-UTF-8 output: {}", error))
+            })?;
+
+            let latency_ms = start.elapsed().as_millis() as u64;
+
+            Ok::<_, ModelError>((text.trim().to_string(), latency_ms))
+        }),
+        )
+        .await
+        .map_err(|_| {
+            ModelError::InferenceError(format!(
+                "Ollama call timed out after {} seconds",
+                timeout_secs
+            ))
+        })?
+        .map_err(|e| ModelError::InferenceError(format!("Task join error: {}", e)))??;
+
+        Ok(response)
+    }
 }
 
 #[cfg(test)]
@@ -209,14 +258,15 @@ mod tests {
 
     #[test]
     fn test_ollama_prompt_generation() {
-        let backend = OllamaBackend::new("phi3:mini".to_string());
         let context = PlanContext {
             tool_registry: vec![ToolInfo::new("ls", "list files")],
             input_summary: Some("test input".to_string()),
             ..Default::default()
         };
 
-        let prompt = backend.build_prompt("list files", &context);
+        let system = crate::planner::prompts::build_system_prompt(&context);
+        let user = crate::planner::prompts::build_user_prompt("list files", &context);
+        let prompt = format!("{}\n\n{}", system, user);
 
         assert!(prompt.contains("list files"));
         assert!(prompt.contains("test input"));

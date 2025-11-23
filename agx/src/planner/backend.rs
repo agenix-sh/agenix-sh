@@ -27,4 +27,11 @@ pub trait ModelBackend: Send + Sync {
 
     /// Validate that the model is loaded and ready to generate plans
     async fn health_check(&self) -> Result<(), ModelError>;
+
+    /// Generate a conversational response
+    async fn chat(
+        &self,
+        history: &[super::types::ChatMessage],
+        context: &PlanContext,
+    ) -> Result<String, ModelError>;
 }

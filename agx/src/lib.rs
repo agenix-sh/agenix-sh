@@ -46,7 +46,7 @@ pub async fn run() -> Result<()> {
     }
 
     match command {
-        cli::Command::Repl => handle_repl().map_err(|e| anyhow::anyhow!(e)),
+        cli::Command::Repl => handle_repl().await.map_err(|e| anyhow::anyhow!(e)),
         cli::Command::Chat => echo::run().await,
         cli::Command::Run { goal } => delta::run(goal).await,
         cli::Command::Plan(plan_command) => handle_plan_command(plan_command).map_err(|e| anyhow::anyhow!(e)),
@@ -55,34 +55,29 @@ pub async fn run() -> Result<()> {
     }
 }
 
-fn handle_repl() -> Result<(), String> {
+async fn handle_repl() -> Result<(), String> {
     // Create backend for Echo model (interactive planning)
     let config = planner::PlannerConfig::from_env();
 
-    // Use async to create backend (requires tokio runtime)
-    let rt = tokio::runtime::Runtime::new()
-        .map_err(|e| format!("failed to create runtime: {}", e))?;
-
-    let backend: Box<dyn planner::ModelBackend> = rt.block_on(async {
-        match config.backend {
-            planner::BackendKind::Ollama => {
-                let ollama_config = planner::ollama::OllamaConfig::default();
-                let backend = planner::ollama::OllamaBackend::from_config(ollama_config);
-                Ok::<Box<dyn planner::ModelBackend>, String>(Box::new(backend))
-            }
-            planner::BackendKind::Candle => {
-                // Force Echo role for REPL
-                let role = planner::ModelRole::Echo;
-                let candle_config = planner::CandleConfig::from_env(role)
-                    .map_err(|e| format!("failed to load Candle config: {}", e))?;
-
-                let backend = planner::CandleBackend::new(candle_config).await
-                    .map_err(|e| format!("failed to initialize Candle backend: {}", e))?;
-
-                Ok::<Box<dyn planner::ModelBackend>, String>(Box::new(backend))
-            }
+    // Create backend asynchronously (reuses existing tokio runtime from main)
+    let backend: Box<dyn planner::ModelBackend> = match config.backend {
+        planner::BackendKind::Ollama => {
+            let ollama_config = planner::ollama::OllamaConfig::default();
+            let backend = planner::ollama::OllamaBackend::from_config(ollama_config);
+            Box::new(backend)
         }
-    })?;
+        planner::BackendKind::Candle => {
+            // Force Echo role for REPL
+            let role = planner::ModelRole::Echo;
+            let candle_config = planner::CandleConfig::from_env(role)
+                .map_err(|e| format!("failed to load Candle config: {}", e))?;
+
+            let backend = planner::CandleBackend::new(candle_config).await
+                .map_err(|e| format!("failed to initialize Candle backend: {}", e))?;
+
+            Box::new(backend)
+        }
+    };
 
     // Create and run REPL
     let mut repl_session = repl::Repl::new(backend)?;

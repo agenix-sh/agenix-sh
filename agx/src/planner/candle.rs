@@ -285,67 +285,25 @@ impl CandleBackend {
 
     /// Build prompt based on model role (Echo vs Delta)
     fn build_prompt(&self, instruction: &str, context: &PlanContext) -> String {
+        // If we have existing tasks, we are in validation mode (Delta)
+        if !context.existing_tasks.is_empty() {
+            return crate::planner::prompts::build_delta_prompt(instruction, context);
+        }
+
         match self.config.model_role {
             ModelRole::Echo => self.build_echo_prompt(instruction, context),
-            ModelRole::Delta => self.build_delta_prompt(instruction, context),
+            ModelRole::Delta => crate::planner::prompts::build_delta_prompt(instruction, context),
         }
     }
 
     /// Build Echo prompt (fast, streamlined)
     fn build_echo_prompt(&self, instruction: &str, context: &PlanContext) -> String {
-        let tools = self.format_tool_list(&context.tool_registry);
-
-        // Sanitize user input to prevent prompt injection
-        let safe_instruction = Self::sanitize_input(instruction, 1000);
-        let safe_input_info = context
-            .input_summary
-            .as_ref()
-            .map(|s| format!("\nInput: {}", Self::sanitize_input(s, 500)))
-            .unwrap_or_default();
-
-        format!(
-            "You are a fast task planner. Convert this instruction into a JSON task list.\n\
-             Available tools: {}\n\
-             Instruction: {}{}\n\
-             Output only valid JSON: {{\"tasks\": [{{\"task_number\": 1, \"command\": \"tool-id\", \"args\": [], \"timeout_secs\": 300}}]}}",
-            tools, safe_instruction, safe_input_info
-        )
+        let system = crate::planner::prompts::build_system_prompt(context);
+        let user = crate::planner::prompts::build_user_prompt(instruction, context);
+        format!("{}\n\n{}", system, user)
     }
 
-    /// Build Delta prompt (thorough, validation-focused)
-    fn build_delta_prompt(&self, instruction: &str, context: &PlanContext) -> String {
-        let tools = self.format_tool_list(&context.tool_registry);
-        let existing_plan = if !context.existing_tasks.is_empty() {
-            match serde_json::to_string(&context.existing_tasks) {
-                Ok(json) => json,
-                Err(e) => {
-                    log::warn!("Failed to serialize existing tasks for Delta prompt: {}", e);
-                    "[]".to_string()
-                }
-            }
-        } else {
-            "[]".to_string()
-        };
 
-        // Sanitize user input to prevent prompt injection
-        let safe_instruction = Self::sanitize_input(instruction, 1000);
-
-        format!(
-            "You are an expert task planner. Validate and refine this plan.\n\
-             Original instruction: {}\n\
-             Current plan: {}\n\
-             Available tools: {}\n\
-             \n\
-             Validate:\n\
-             1. Task ordering and dependencies\n\
-             2. Tool availability and arguments\n\
-             3. Error handling\n\
-             4. Edge cases\n\
-             \n\
-             Output improved JSON plan: {{\"tasks\": [{{\"task_number\": 1, \"command\": \"tool-id\", \"args\": [], \"timeout_secs\": 300}}]}}",
-            safe_instruction, existing_plan, tools
-        )
-    }
 
     /// Format tool list for prompt
     fn format_tool_list(&self, tools: &[ToolInfo]) -> String {
@@ -357,7 +315,7 @@ impl CandleBackend {
     }
 
     /// Generate tokens using the model
-    fn generate_tokens(&self, input_tokens: &[u32]) -> Result<Vec<u32>, ModelError> {
+    fn generate_tokens(&self, input_tokens: &[u32], stop_on_json: bool) -> Result<Vec<u32>, ModelError> {
         use candle_transformers::generation::LogitsProcessor;
 
         // Use configured seed or generate random one
@@ -419,7 +377,7 @@ impl CandleBackend {
 
             // Early stopping if we can parse valid JSON
             // Check every 10 tokens to avoid too much overhead
-            if generated_tokens.len() % 10 == 0 {
+            if stop_on_json && generated_tokens.len() % 10 == 0 {
                 if let Ok(text) = self.tokenizer.decode(&generated_tokens, true) {
                     // Try to parse as JSON - if successful, we have a complete response
                     if serde_json::from_str::<serde_json::Value>(&text).is_ok() {
@@ -459,7 +417,7 @@ impl ModelBackend for CandleBackend {
 
         // Generate tokens (CPU-intensive, but we keep it sync for now)
         // TODO: Consider using spawn_blocking if generation is too slow
-        let output_tokens = self.generate_tokens(&input_tokens)?;
+        let output_tokens = self.generate_tokens(&input_tokens, true)?;
 
         // Decode
         let response = self.tokenizer.decode(&output_tokens, true)?;
@@ -500,6 +458,36 @@ impl ModelBackend for CandleBackend {
             .map_err(|e| ModelError::HealthCheckError(format!("Tokenizer test failed: {}", e)))?;
 
         Ok(())
+    }
+
+    async fn chat(
+        &self,
+        history: &[super::types::ChatMessage],
+        _context: &PlanContext,
+    ) -> Result<String, ModelError> {
+        // Build prompt
+        let mut prompt = String::new();
+        for msg in history {
+            match msg.role.as_str() {
+                "system" => prompt.push_str(&format!("System: {}\n", msg.content)),
+                "user" => prompt.push_str(&format!("User: {}\n", msg.content)),
+                "assistant" => prompt.push_str(&format!("Assistant: {}\n", msg.content)),
+                _ => prompt.push_str(&format!("{}: {}\n", msg.role, msg.content)),
+            }
+        }
+        prompt.push_str("Assistant: ");
+
+        // Tokenize
+        let encoding = self.tokenizer.encode(prompt, true)?;
+        let input_tokens: Vec<u32> = encoding.get_ids().to_vec();
+
+        // Generate tokens (no JSON stopping)
+        let output_tokens = self.generate_tokens(&input_tokens, false)?;
+
+        // Decode
+        let response = self.tokenizer.decode(&output_tokens, true)?;
+        
+        Ok(response)
     }
 }
 
@@ -699,24 +687,13 @@ mod tests {
         };
 
         // Test prompt building without needing a full backend
-        let tools = context
-            .tool_registry
-            .iter()
-            .map(|t| format!("{} ({})", t.name, t.description))
-            .collect::<Vec<_>>()
-            .join(", ");
+        let system = crate::planner::prompts::build_system_prompt(&context);
+        let user = crate::planner::prompts::build_user_prompt("list files", &context);
+        let prompt = format!("{}\n\n{}", system, user);
 
-        let prompt = format!(
-            "You are a fast task planner. Convert this instruction into a JSON task list.\n\
-             Available tools: {}\n\
-             Instruction: {}\n\
-             Output only valid JSON: {{\"plan\": [{{\"cmd\": \"tool-id\"}}, ...]}}",
-            tools, "list files"
-        );
-
-        assert!(prompt.contains("fast task planner"));
+        assert!(prompt.contains("AGX Planner"));
         assert!(prompt.contains("list files"));
-        assert!(!prompt.contains("validate")); // Echo should be simple
+        assert!(prompt.contains("ls: list files"));
     }
 
     #[test]

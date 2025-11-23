@@ -112,4 +112,11 @@ static TOOLS: &[Tool] = &[
         patterns: &["json", "jq", "filter json", "transform json"],
         ok_exit_codes: &[0],
     },
+    Tool {
+        id: "train_model",
+        command: "agx-train",
+        description: "Train a model using Axolotl.",
+        patterns: &["train", "fine-tune", "axolotl", "training"],
+        ok_exit_codes: &[0],
+    },
 ];
