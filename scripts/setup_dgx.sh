@@ -55,24 +55,36 @@ cargo build --release --bin agx --no-default-features
 
 echo "✅ Build Complete."
 
-# 3. Python Environment
-echo "🐍 Checking Python Dependencies..."
+# 3. Python Environment (uv)
+echo "🐍 Setting up Python with uv..."
+
+# Install uv if missing
+if ! command -v uv &> /dev/null; then
+    echo "   - Installing uv..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    # Ensure uv is in PATH for this session
+    export PATH="$HOME/.cargo/bin:$PATH"
+fi
+
+# Create venv
+if [ ! -d ".venv" ]; then
+    echo "   - Creating virtual environment (.venv)..."
+    uv venv
+fi
+
+# Activate venv for subsequent commands
+source .venv/bin/activate
+
+echo "   - Installing base dependencies (accelerate, redis)..."
+uv pip install accelerate redis
+
+# Check Axolotl
 if ! python3 -c "import axolotl" &> /dev/null; then
-    echo "⚠️  Axolotl not found. It is REQUIRED for training."
-    echo "   Please install it: pip install -e '.[flash-attn,deepspeed]'"
-    echo "   See: https://github.com/OpenAccess-AI-Collective/axolotl"
+    echo "⚠️  Axolotl not found."
+    echo "   To install with uv (recommended):"
+    echo "   uv pip install 'axolotl[flash-attn,deepspeed] @ git+https://github.com/OpenAccess-AI-Collective/axolotl.git'"
 else
     echo "   - Axolotl found."
-fi
-
-if ! python3 -c "import accelerate" &> /dev/null; then
-    echo "⚠️  Accelerate not found. Installing..."
-    pip install accelerate
-fi
-
-if ! python3 -c "import redis" &> /dev/null; then
-    echo "⚠️  Redis-py not found. Installing..."
-    pip install redis
 fi
 
 # 4. Directories
@@ -82,6 +94,9 @@ mkdir -p training/qlora-out
 # 5. Instructions
 echo ""
 echo "🎉 Setup Complete!"
+echo ""
+echo "IMPORTANT: Activate the virtual environment before running commands:"
+echo "   source .venv/bin/activate"
 echo ""
 echo "To start the cluster:"
 echo "1. Start Queue (in a tmux/screen):"
