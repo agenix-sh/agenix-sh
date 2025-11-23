@@ -46,6 +46,9 @@ cargo build --release --bin agq --bin agw
 # Note: For training, we use 'accelerate' which uses python/torch, but agx might use candle
 echo "   - Building AGX (with CUDA)..."
 export CUDA_COMPUTE_CAP=90  # Hopper (H100) / Blackwell
+# Workaround for CUDA 13.0 (too new for current cudarc/candle)
+# We force it to treat it as 12.6, assuming backward compatibility
+export CUDARC_CUDA_VERSION=12.6
 cargo build --release --bin agx --features cuda
 
 # Build Data Generator
