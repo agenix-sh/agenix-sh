@@ -44,7 +44,7 @@ cargo build --release --bin agq --bin agw
 
 # Build Training Wrapper (The only thing needed for training besides python env)
 echo "   - Building Training Wrapper..."
-cargo build --release --bin agx_train
+cargo build --release --bin agx_train --no-default-features
 
 # Build AGX (Optional, CPU only, no default features to avoid 'accelerate' framework issue on Linux)
 echo "   - Building AGX (Minimal)..."
