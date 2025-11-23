@@ -14,6 +14,27 @@ if ! command -v python3 &> /dev/null; then
     exit 1
 fi
 
+# Check for OpenSSL/pkg-config (required for some crates even with rustls)
+if ! command -v pkg-config &> /dev/null; then
+    echo "⚠️  pkg-config not found. Attempting to install..."
+    if command -v sudo &> /dev/null; then
+        sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev
+    else
+        echo "❌ sudo not found. Please install 'pkg-config' and 'libssl-dev' manually."
+        exit 1
+    fi
+fi
+
+if ! pkg-config --exists openssl; then
+    echo "⚠️  OpenSSL dev headers not found. Attempting to install..."
+    if command -v sudo &> /dev/null; then
+        sudo apt-get update && sudo apt-get install -y libssl-dev
+    else
+        echo "❌ sudo not found. Please install 'libssl-dev' manually."
+        exit 1
+    fi
+fi
+
 # 2. Build Binaries
 echo "📦 Building Binaries..."
 
