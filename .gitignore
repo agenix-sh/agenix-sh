@@ -10,4 +10,7 @@ axolotl/
 qlora-out/
 last_run_prepared/
 *.txt
-
+.venv/
+.env
+models/
+tinker_logs/

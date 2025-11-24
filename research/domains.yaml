@@ -1,0 +1,37 @@
+# Domains for Synthetic Data Generation
+# Each domain represents a skill area for the Agent.
+
+- domain: "File System Management"
+  description: "Operations involving files, directories, permissions, and disk usage."
+  examples:
+    - "Find all large log files in /var/log and compress them."
+    - "Organize the Downloads folder by file type."
+    - "Recursively change ownership of the project directory to user 'deploy'."
+
+- domain: "Git Version Control"
+  description: "Common git operations, branching, merging, and history."
+  examples:
+    - "Undo the last commit but keep changes staged."
+    - "Find which commit introduced a bug in src/main.rs."
+    - "Sync with upstream and rebase local changes."
+
+- domain: "System Information & Monitoring"
+  description: "Checking system resources, processes, and hardware info."
+  examples:
+    - "List the top 5 processes consuming the most memory."
+    - "Check available disk space on the root partition."
+    - "Find the process ID of the service listening on port 8080."
+
+- domain: "Network Operations"
+  description: "Connectivity checks, DNS, and simple transfers."
+  examples:
+    - "Check if google.com is reachable and measure latency."
+    - "Download a file from a URL and verify its checksum."
+    - "List all active TCP connections."
+
+- domain: "Text Processing"
+  description: "Using grep, sed, awk, and other tools to manipulate text."
+  examples:
+    - "Extract all email addresses from a text file."
+    - "Replace all occurrences of 'foo' with 'bar' in all .txt files."
+    - "Count the number of unique IP addresses in the access log."
