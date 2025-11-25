@@ -5,6 +5,7 @@ import argparse
 import shutil
 import subprocess
 import glob
+import json
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
@@ -85,11 +86,26 @@ def merge_model(base_model_id, adapter_dir, output_dir):
         sys.exit(1)
 
 def main():
+
+    # Load defaults from config if available
+    config_path = "tinker_config.json"
+    defaults = {}
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, "r") as f:
+                defaults = json.load(f)
+        except Exception as e:
+            print(f"Warning: Could not load {config_path}: {e}")
+
     parser = argparse.ArgumentParser(description="Prepare local GGUF model from Tinker")
-    parser.add_argument("--tinker-path", required=True, help="Tinker model path (tinker://...)")
-    parser.add_argument("--base-model", default="meta-llama/Llama-3.1-8B-Instruct", help="Base HF model ID")
-    parser.add_argument("--output-dir", default="models/agenix-echo-v1-merged", help="Output directory for merged model")
+    parser.add_argument("--tinker-path", default=defaults.get("tinker_model_id"), help="Tinker model path (tinker://...)")
+    parser.add_argument("--base-model", default=defaults.get("base_model", "meta-llama/Llama-3.1-8B-Instruct"), help="Base HF model ID")
+    parser.add_argument("--output-dir", default=defaults.get("output_dir", "models/agenix-echo-v1-merged"), help="Output directory for merged model")
     args = parser.parse_args()
+
+    if not args.tinker_path:
+        print("Error: --tinker-path is required (or set in tinker_config.json)")
+        sys.exit(1)
 
     # 1. Download Adapter
     temp_dl_dir = "models/temp_dl"
